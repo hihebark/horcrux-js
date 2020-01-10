@@ -35,9 +35,9 @@ Horcrux.prototype.split = function () {
   const secrets = require('secrets.js-grempe')
   , fs = require('fs')
   , path = require('path')
-  , { generateHeader, cryptoReader } = require('./commons');
+  , { generateHeader, encrypt } = require('./commons');
 
-  let key = secrets.random(32)
+  let key = secrets.random(128) // To get 32 byte
   , KeyFragment = secrets.share(key, this.parts, this.threshold)
   , file = fs.readFileSync(this.filename, 'utf8')
   , filename = path.basename(this.filename)
@@ -59,12 +59,22 @@ Horcrux.prototype.split = function () {
 
     fs.writeFile(path.join(this.output, outFile), fileHeader, (err) => {
       if (err) throw err;
-      horcruxFiles.push(path.join(this.output, outFile))
     });
+    horcruxFiles.push(path.join(this.output, outFile))
     index++;
   }
-  console.log(cryptoReader(key));
-
+  let fileReader = fs.readFileSync(this.filename, 'utf8')
+  , reader = encrypt(fileReader, key)
+  , from = 0
+  , to = parseInt(reader.length / this.parts, 10);
+  for (let i in horcruxFiles) {
+    fs.appendFile(horcruxFiles[i], reader.slice(from, to), (err) => {
+      if (err) throw err;
+    });
+    from = to + 1;
+    if (i != horcruxFiles.length) to = to + parseInt(reader.length / this.parts, 10);
+    else to = reader.length;
+  }
 };
 
 Horcrux.prototype.bind = function (output) {
@@ -72,6 +82,7 @@ Horcrux.prototype.bind = function (output) {
     console.log('Binding to:', output);
   } else {
     console.log('Binding:', this.output)
+
   }
 }
 

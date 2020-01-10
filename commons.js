@@ -1,7 +1,10 @@
-cryptoReader = (key) => {
+encrypt = (secret, key) => {
   const crypto = require('crypto');
-  let algorithm = 'aes-256-ofb' //aes256' | 'aes-256-ofb'
-  return crypto.createCipheriv(algorithm, key, null); // Not working enless puting iv;
+  let algorithm = 'aes-256-ofb'
+  , cipher = crypto.createCipheriv(algorithm, key, crypto.randomBytes(16))
+  , encryptedText = cipher.update(secret, 'utf8', 'binary');
+  encryptedText += cipher.final('binary');
+  return encryptedText;
 }
 
 generateHeader = (parts, index, header) => {
@@ -12,10 +15,11 @@ generateHeader = (parts, index, header) => {
 # https://github.com/jesseduffield/horcrux || https://github.com/hihebark/horcrux-js
 -- HEADER --
 ${JSON.stringify(header)}
--- BODY --`
+-- BODY --
+`
 }
 
 module.exports = {
-  cryptoReader,
+  encrypt,
   generateHeader
 }
