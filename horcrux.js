@@ -6,6 +6,10 @@
  * @param {Number} options.threshold
  **/
 
+const secrets = require('secrets.js-grempe')
+, fs = require('fs')
+, path = require('path');
+
 function Horcrux (options) {
 
   var filename;
@@ -32,10 +36,7 @@ function Horcrux (options) {
 
 Horcrux.prototype.split = function () {
 
-  const secrets = require('secrets.js-grempe')
-  , fs = require('fs')
-  , path = require('path')
-  , { generateHeader, encrypt } = require('./commons');
+  const { generateHeader, encrypt } = require('./commons');
 
   let key = secrets.random(128) // To get 32 byte
   , KeyFragment = secrets.share(key, this.parts, this.threshold)
@@ -44,11 +45,12 @@ Horcrux.prototype.split = function () {
   , ext = path.extname(filename)
   , filenameWithoutExt = filename.split('.'+ext)[0]
   , index = 1
-  , horcruxFiles = [];
+  , horcruxFiles = []
+  , timestamp = parseInt(Date.now()/1000, 10); // to make it like the original horcrux;
   for (let i = 0; i < this.parts; i++) {
     let header = {
       OriginalFilename: filename,
-      Timestamp: parseInt(Date.now()/1000, 10), // to make it like the original horcrux
+      Timestamp: timestamp,
       Index: index,
       Total: this.parts,
       KeyFragment: KeyFragment[i],
@@ -64,25 +66,55 @@ Horcrux.prototype.split = function () {
     index++;
   }
   let fileReader = fs.readFileSync(this.filename, 'utf8')
-  , reader = encrypt(fileReader, key)
-  , from = 0
-  , to = parseInt(reader.length / this.parts, 10);
-  for (let i in horcruxFiles) {
-    fs.appendFile(horcruxFiles[i], reader.slice(from, to), (err) => {
+  , reader = encrypt(fileReader, key);
+  for (const horcruxFile of horcruxFiles) {
+    fs.appendFile(horcruxFile, reader, (err) => {
       if (err) throw err;
     });
-    from = to + 1;
-    if (i != horcruxFiles.length) to = to + parseInt(reader.length / this.parts, 10);
-    else to = reader.length;
   }
+  return horcruxFiles;
 };
 
 Horcrux.prototype.bind = function (output) {
-  if (output) {
-    console.log('Binding to:', output);
-  } else {
-    console.log('Binding:', this.output)
+  try {
+    const { returnHeader, returnBody, decrypt } = require('./commons');
+    if (output !== undefined || output !== '') {
+      fs.readdir(output, async (err, horcruxFiles) => {
+        if (err) throw err;
+        let headers = []
+        , keyFragments = [];
+        horcruxFiles = horcruxFiles.filter(v => v.match(/\.horcrux+$/i));
+        for (const horcruxFile of horcruxFiles) {
+          let header = await returnHeader(path.join(output, horcruxFile));
+          headers.push(header);
+        }
 
+        if (headers.length == 0) {
+          throw new Error('No horcruxes in directory');
+          return;
+        }
+
+        let testTimestamp = headers.filter(v => v.Timestamp == headers[0].Timestamp)
+        , testOriginalFilename =  headers.filter(v => v.OriginalFilename == headers[0].OriginalFilename);
+
+        if (testTimestamp.length != headers.length || testOriginalFilename.length != headers.length) {
+          throw new Error('All horcruxes in the given directory must have the same original filename and timestamp.');
+          return;
+        }
+        if (headers.length < headers[0].Threshold) {
+          throw new Error(`You do not have all the required horcruxes. There are ${headers[0].Threshold} required to resurrect the original file. You only have ${headers.length}`);
+          return;
+        }
+        for (const header of headers) {
+          keyFragments.push(header.KeyFragment);
+        }
+        let key = secrets.combine(keyFragments);
+        let body = returnBody(path.join(output, horcruxFiles[0]));
+        console.log(decrypt(await body, key));
+      });
+    }
+  } catch (err) {
+    throw err;
   }
 }
 

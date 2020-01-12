@@ -8,5 +8,6 @@ let horcrux = new Horcrux({
   threshold: 5
 });
 
-horcrux.split();
-//horcrux.bind();
+let horcruxFiles = horcrux.split();
+//console.log(horcruxFiles);
+horcrux.bind('./test');
