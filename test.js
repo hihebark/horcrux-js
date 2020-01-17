@@ -1,4 +1,4 @@
-const Horcrux = require('./horcrux');
+const Horcrux = require('./index');
 
 let diaryBody = require('fs').readFileSync('./example/diary.txt', 'utf8');
 

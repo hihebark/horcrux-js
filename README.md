@@ -5,6 +5,10 @@ As said in the readme of horcrux you can split your file into encrypted horcruxe
 
 ## Usage
 
+```
+$ npm install horcrux-js --save
+```
+
 ```js
 const Horcrux = require('horcrux-js');
 
