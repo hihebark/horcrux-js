@@ -21,4 +21,3 @@ node_modules/
 # eslint
 .eslintignore
 .eslintrc
-test/*.horcrux

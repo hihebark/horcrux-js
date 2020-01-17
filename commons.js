@@ -1,24 +1,24 @@
 const algorithm = 'aes-256-ofb'
 , encoding = 'binary';
 
-const encrypt = (clear, key) => {
-  const crypto = require('crypto')
-  , iv = crypto.randomBytes(16);
-  console.log(iv);
-  let cipher = crypto.createCipheriv(algorithm, key, iv)
-  , encryptedText = iv+cipher.update(clear, '', encoding);
-  encryptedText += cipher.final('binary');
-  return encryptedText;
+const encrypt = (plain, key) => {
+  const crypto = require('crypto');
+  const iv = crypto.randomBytes(16);
+  const aes = crypto.createCipheriv(algorithm, key, iv);
+  let ciphertext = aes.update(plain);
+  ciphertext = Buffer.concat([iv, ciphertext, aes.final()]);
+  return ciphertext.toString(encoding);
 }
 
-const decrypt = (secret, key) => {
-  const crypto = require('crypto')
-  , iv = Buffer.from(secret.slice(0, 16));
-  console.log(iv);
-  let decipher = crypto.createDecipheriv(algorithm, key, iv)
-  , result = decipher.update(secret.slice(16), encoding);
-  result += decipher.final();
-  return result;
+const decrypt = (cipher, key) => {
+  const crypto = require('crypto');
+  const ciphertextBytes = Buffer.from(cipher, encoding)
+  , iv = ciphertextBytes.slice(0, 16)
+  , data = ciphertextBytes.slice(16)
+  , aes = crypto.createDecipheriv(algorithm, key, iv);
+  let plaintextBytes = Buffer.from(aes.update(data));
+  plaintextBytes = Buffer.concat([plaintextBytes, aes.final()]);
+  return plaintextBytes.toString();
 }
 
 const generateHeader = (parts, index, header) => {
@@ -71,11 +71,11 @@ const returnBody = (horcruxFile) => {
       if (line == '-- BODY --')
         start = true;
       if (start && line != '-- BODY --') {
-        body += line;
+        body += line+'\n';
       }
     });
     rl.on('close', function() {
-      resolve(body);
+      resolve(body.replace(/(\n|\r)+$/, '')); // removing the last `\n` or `\r\n`
     });
   });
 
